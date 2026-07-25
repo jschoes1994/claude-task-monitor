@@ -5,7 +5,7 @@ always-on-top floating panel that shows the live status of every Claude Code and
 Claude Cowork session on your machine — which ones are working, which need your
 input, and which just finished. Native on **macOS**, with a **Windows** port.
 
-[![Buy me a coffee](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=&slug=jamespschuc&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff)](https://buymeacoffee.com/jamespschuc)
+[![Buy me a coffee](https://img.shields.io/badge/%E2%98%95%20Buy%20me%20a%20coffee-PayPal-FFDD00?style=for-the-badge&logo=paypal&logoColor=00457C)](https://www.paypal.com/paypalme/jschoes1994?locale.x=en_US&country.x=US)
 
 *This is an independent open-source tool, not affiliated with or endorsed by Anthropic.*
 
@@ -155,8 +155,8 @@ Requires Xcode command line tools (`swiftc`). No dependencies — one Swift file
 ## Support
 
 If this app saves you from alt-tabbing all day, consider
-[**buying me a coffee ☕**](https://buymeacoffee.com/jamespschuc) — it funds the
-patching whenever Claude's internals change.
+[**buying me a coffee ☕ (PayPal)**](https://www.paypal.com/paypalme/jschoes1994?locale.x=en_US&country.x=US) —
+it funds the patching whenever Claude's internals change.
 
 ## License
 
