@@ -1,0 +1,10 @@
+{
+  "name": "claude-tasks-streamdeck",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stream Deck plugin showing live status of Claude Code and Cowork sessions",
+  "main": "bin/plugin.js",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

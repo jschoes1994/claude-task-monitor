@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body {
+    margin: 0;
+    padding: 10px;
+    background: #2D2D2D;
+    color: #D8D8D8;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 13px;
+  }
+  label { display: block; margin: 10px 0 4px; color: #969696; font-size: 11px; text-transform: uppercase; }
+  select {
+    width: 100%;
+    padding: 6px;
+    background: #3D3D3D;
+    color: #FFFFFF;
+    border: 1px solid #1A1A1A;
+    border-radius: 4px;
+  }
+  .hint { margin-top: 10px; color: #808080; font-size: 11px; line-height: 1.4; }
+  button {
+    margin-top: 10px;
+    padding: 5px 10px;
+    background: #3D3D3D;
+    color: #D8D8D8;
+    border: 1px solid #1A1A1A;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <label for="binding">This key shows</label>
+  <select id="binding"></select>
+  <button id="refresh">Refresh session list</button>
+  <div class="hint">
+    Auto slots always show your most urgent sessions (needs input first, then
+    working, then most recent). Picking a specific chat pins it to this key;
+    it turns gray when that chat has been inactive for 8+ hours.
+  </div>
+
+<script>
+  let websocket = null;
+  let pluginUUID = null;
+  let actionInfo = null;
+  let sessions = [];
+  let settings = {};
+
+  // Stream Deck calls this global when the inspector loads.
+  function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, aInfo) {
+    pluginUUID = uuid;
+    actionInfo = JSON.parse(aInfo);
+    settings = (actionInfo.payload && actionInfo.payload.settings) || {};
+    websocket = new WebSocket("ws://127.0.0.1:" + port);
+    websocket.onopen = () => {
+      websocket.send(JSON.stringify({ event: registerEvent, uuid }));
+      requestSessions();
+    };
+    websocket.onmessage = (ev) => {
+      const m = JSON.parse(ev.data);
+      if (m.event === "sendToPropertyInspector" && m.payload && m.payload.event === "sessions") {
+        sessions = m.payload.sessions || [];
+        populate();
+      }
+    };
+    populate();
+  }
+
+  function requestSessions() {
+    websocket.send(JSON.stringify({
+      event: "sendToPlugin",
+      action: actionInfo.action,
+      context: pluginUUID,
+      payload: { event: "getSessions" },
+    }));
+  }
+
+  function populate() {
+    const sel = document.getElementById("binding");
+    sel.innerHTML = "";
+    const autoGroup = document.createElement("optgroup");
+    autoGroup.label = "Automatic";
+    for (let i = 0; i < 8; i++) {
+      const o = document.createElement("option");
+      o.value = "auto:" + i;
+      o.textContent = "Auto slot " + (i + 1) + (i === 0 ? " (most urgent)" : "");
+      autoGroup.appendChild(o);
+    }
+    sel.appendChild(autoGroup);
+
+    if (sessions.length) {
+      const group = document.createElement("optgroup");
+      group.label = "Pin a specific chat";
+      for (const s of sessions) {
+        const o = document.createElement("option");
+        o.value = "session:" + s.sessionId;
+        const badge = s.kind === "cowork" ? " [Cowork]" : "";
+        o.textContent = s.name + badge;
+        group.appendChild(o);
+      }
+      sel.appendChild(group);
+    }
+
+    // Reflect saved settings, keeping a stale pinned session selectable.
+    if (settings.mode === "session" && settings.sessionId) {
+      const v = "session:" + settings.sessionId;
+      if (![...sel.options].some((o) => o.value === v)) {
+        const o = document.createElement("option");
+        o.value = v;
+        o.textContent = (settings.name || settings.sessionId.slice(0, 8)) + " (inactive)";
+        sel.appendChild(o);
+      }
+      sel.value = v;
+    } else {
+      sel.value = "auto:" + (settings.autoIndex || 0);
+    }
+  }
+
+  document.getElementById("binding").addEventListener("change", (e) => {
+    const [mode, value] = e.target.value.split(/:(.*)/s);
+    if (mode === "auto") {
+      settings = { mode: "auto", autoIndex: parseInt(value, 10) };
+    } else {
+      const s = sessions.find((x) => x.sessionId === value);
+      settings = { mode: "session", sessionId: value, name: s ? s.name : "" };
+    }
+    websocket.send(JSON.stringify({ event: "setSettings", context: pluginUUID, payload: settings }));
+  });
+
+  document.getElementById("refresh").addEventListener("click", requestSessions);
+</script>
+</body>
+</html>

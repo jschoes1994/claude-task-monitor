@@ -98,6 +98,39 @@ Scriptable, for dotfiles or fleet setup:
 "/Applications/Claude Task Monitor.app/Contents/MacOS/ClaudeTaskMonitor" --uninstall-hooks
 ```
 
+## Stream Deck plugin
+
+The [`streamdeck/`](streamdeck/) folder contains an Elgato Stream Deck plugin:
+each key shows one session with a color-coded status (blue working, orange
+needs input, green done, plus running agent counts), and pressing a key jumps
+to that session in Claude Desktop.
+
+Two ways to bind a key, chosen in the key's settings panel:
+
+- **Auto slots** show your most urgent sessions, ranked needs-input first,
+  then working, then most recent. Put auto slots 1 through 4 on a row and the
+  hottest chats always surface there.
+- **Pin a specific chat** to a key; it turns gray once that chat has been
+  inactive for 8+ hours. Add and remove keys like any Stream Deck action.
+
+Install on macOS (requires [Node.js](https://nodejs.org) and the Stream Deck
+app 6.4+):
+
+```bash
+cd streamdeck && ./install.sh
+```
+
+On Windows: run `npm install` inside
+`streamdeck/com.jamesschuler.claude-tasks.sdPlugin`, copy that folder to
+`%APPDATA%\Elgato\StreamDeck\Plugins\`, and restart the Stream Deck app.
+
+The plugin reads the same local files as the desktop app, so the precise
+status hooks benefit it too. Test the scanner without a Stream Deck:
+
+```bash
+node streamdeck/com.jamesschuler.claude-tasks.sdPlugin/bin/plugin.js --scan-test
+```
+
 ## AI titles for terminal sessions
 
 Terminal sessions get a short AI-generated title (e.g. "Fix auth token refresh")
