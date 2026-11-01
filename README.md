@@ -194,3 +194,25 @@ it funds the patching whenever Claude's internals change.
 ## License
 
 MIT
+
+<!-- handoff:start -->
+## Handoff
+
+_Last updated 2026-11-01 by Claude Code. Full chat transcripts live in `chat-logs/`; the newest is the one to read first._
+
+**Where things stand**
+
+Added Elgato Stream Deck plugin (streamdeck/): one key per Claude session with color-coded status and press-to-open; auto slots rank most urgent first, or pin specific chats. Scanner validated against live data on this Mac; still needs an on-device test with the Stream Deck app, which is not installed here. Next step: run streamdeck/install.sh on the machine with the Stream Deck and verify keys render and presses open sessions.
+
+**Pick this up on another machine**
+
+```bash
+gh repo clone jschoes1994/claude-task-monitor && cd ClaudeTaskMonitor
+```
+
+Then start Claude Code in the folder and say: "Read README.md and the newest file in chat-logs/, then continue where we left off."
+
+**Chat logs (newest first)**
+
+- [chat-logs/2026-11-01-f2491c1e.md](chat-logs/2026-11-01-f2491c1e.md)
+<!-- handoff:end -->
