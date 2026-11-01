@@ -411,6 +411,36 @@ function keyImage(session) {
 }
 
 // ---------------------------------------------------------------------------
+// Key preview mode: render current sessions as an HTML page of key images.
+// Usage: node bin/plugin.js --key-preview <out.html>
+// ---------------------------------------------------------------------------
+
+if (process.argv.includes("--key-preview")) {
+  const out = process.argv[process.argv.indexOf("--key-preview") + 1] || "key-preview.html";
+  const sessions = scan();
+  const cells = sessions
+    .concat([null]) // the gray "no session" key
+    .map(
+      (s) =>
+        `<div class="cell"><img src="${keyImage(s)}" width="144" height="144">` +
+        `<div class="cap">${s ? s.name.replace(/</g, "&lt;") : "(unbound / inactive)"}</div></div>`
+    )
+    .join("\n");
+  fs.writeFileSync(
+    out,
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    body{background:#111;font-family:-apple-system,sans-serif;padding:24px}
+    .grid{display:flex;flex-wrap:wrap;gap:18px}
+    .cell{text-align:center}
+    img{border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.6)}
+    .cap{color:#888;font-size:11px;margin-top:6px;max-width:144px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    </style></head><body><div class="grid">${cells}</div></body></html>`
+  );
+  console.log("wrote " + out);
+  process.exit(0);
+}
+
+// ---------------------------------------------------------------------------
 // Stream Deck protocol
 // ---------------------------------------------------------------------------
 
