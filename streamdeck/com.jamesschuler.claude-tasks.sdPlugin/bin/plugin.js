@@ -521,11 +521,15 @@ function openChatImage(settings) {
   return "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64");
 }
 
-// Accepts a full claude.ai chat URL or a bare conversation uuid.
-function chatUuidFrom(text) {
+// Accepts a full claude.ai chat URL, a bare conversation uuid, or a cloud
+// session id (cse_... / session_...), and returns the deep link to open it.
+function chatLinkFrom(text) {
   if (!text) return null;
-  const m = text.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
-  return m ? m[0] : null;
+  const cloud = text.match(/(?:session_|cse_)(?:staging_)?[A-Za-z0-9]{1,64}/);
+  if (cloud) return `claude://code/${cloud[0]}`;
+  const uuid = text.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
+  if (uuid) return `claude://claude.ai/chat/${uuid[0]}`;
+  return null;
 }
 
 const SURFACE_LABELS = { chat: "New chat", cowork: "New Cowork", code: "New Code" };
@@ -644,8 +648,8 @@ function press(context) {
     if (s.type === "code" && s.id) openURL(`claude://claude.ai/claude-code-desktop/${s.id}`);
     else if (s.type === "cowork" && s.id) openURL(`claude://claude.ai/local_sessions/${s.id}`);
     else {
-      const uuid = chatUuidFrom(s.url);
-      if (uuid) openURL(`claude://claude.ai/chat/${uuid}`);
+      const link = chatLinkFrom(s.url);
+      if (link) openURL(link);
       else {
         send({ event: "showAlert", context });
         return;

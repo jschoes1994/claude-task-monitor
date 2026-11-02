@@ -41,16 +41,16 @@
   </select>
   <button id="refresh">Refresh list</button>
 
-  <label for="url">Or paste a claude.ai chat link</label>
-  <input type="text" id="url" placeholder="https://claude.ai/chat/..." />
+  <label for="url">Or paste a chat link / session id</label>
+  <input type="text" id="url" placeholder="https://claude.ai/chat/... or cse_..." />
 
   <label for="name">Key label</label>
   <input type="text" id="name" placeholder="What to show on the key" />
 
   <div class="hint">
-    Pressing the key opens the pinned conversation in Claude Desktop. Regular
-    claude.ai chats open by link; copy the URL from the browser address bar or
-    the desktop app's share menu. Pasting a link overrides the dropdown.
+    Pressing the key opens the pinned conversation in Claude Desktop. Accepts a
+    claude.ai chat URL, a bare conversation uuid, or a cloud session id
+    (cse_... / session_...). Pasting here overrides the dropdown.
   </div>
 
 <script>
