@@ -449,8 +449,33 @@ for (let i = 2; i < process.argv.length; i += 2) argv[process.argv[i]] = process
 
 const WebSocket = require("ws");
 const ws = new WebSocket("ws://127.0.0.1:" + argv["-port"]);
-const keys = new Map(); // context -> settings {mode, sessionId, autoIndex}
+const keys = new Map(); // context -> {action, settings}
 let latest = [];
+
+const ACTION_SESSION = "com.jamesschuler.claude-tasks.session";
+const ACTION_NEWCHAT = "com.jamesschuler.claude-tasks.newchat";
+
+const SURFACE_LABELS = { chat: "New chat", cowork: "New Cowork", code: "New Code" };
+const SURFACE_COLORS = { chat: "#D97757", cowork: "#9B59D0", code: "#1E66D0" };
+
+function newChatImage(settings) {
+  const surface = (settings && settings.surface) || "chat";
+  const color = SURFACE_COLORS[surface] || SURFACE_COLORS.chat;
+  const label = SURFACE_LABELS[surface] || SURFACE_LABELS.chat;
+  const hasPrompt = settings && settings.prompt && settings.prompt.trim();
+  const sub = hasPrompt ? wrap(settings.prompt.trim(), 14, 1)[0] : "";
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">` +
+    `<rect width="144" height="144" rx="16" fill="#1C1C1E"/>` +
+    `<circle cx="72" cy="56" r="26" fill="none" stroke="${color}" stroke-width="5"/>` +
+    `<path d="M72 44v24M60 56h24" stroke="${color}" stroke-width="5" stroke-linecap="round"/>` +
+    `<text x="72" y="108" font-size="17" font-weight="600" fill="#FFFFFF" text-anchor="middle" font-family="-apple-system, Segoe UI, sans-serif">${esc(label)}</text>` +
+    (sub
+      ? `<text x="72" y="128" font-size="12" fill="#9A9A9E" text-anchor="middle" font-family="-apple-system, Segoe UI, sans-serif">${esc(sub)}</text>`
+      : "") +
+    `</svg>`;
+  return "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64");
+}
 
 function send(obj) {
   try {
@@ -471,11 +496,11 @@ ws.on("message", (data) => {
   }
   switch (e.event) {
     case "willAppear":
-      keys.set(e.context, (e.payload && e.payload.settings) || {});
+      keys.set(e.context, { action: e.action, settings: (e.payload && e.payload.settings) || {} });
       refresh();
       break;
     case "didReceiveSettings":
-      keys.set(e.context, (e.payload && e.payload.settings) || {});
+      keys.set(e.context, { action: e.action, settings: (e.payload && e.payload.settings) || {} });
       renderKey(e.context);
       break;
     case "willDisappear":
@@ -501,12 +526,11 @@ function resolve(settings) {
 }
 
 function renderKey(context) {
-  const session = resolve(keys.get(context));
-  send({
-    event: "setImage",
-    context,
-    payload: { image: keyImage(session), target: 0 },
-  });
+  const key = keys.get(context);
+  if (!key) return;
+  const image =
+    key.action === ACTION_NEWCHAT ? newChatImage(key.settings) : keyImage(resolve(key.settings));
+  send({ event: "setImage", context, payload: { image, target: 0 } });
   send({ event: "setTitle", context, payload: { title: "", target: 0 } });
 }
 
@@ -520,7 +544,18 @@ function refresh() {
 }
 
 function press(context) {
-  const session = resolve(keys.get(context));
+  const key = keys.get(context);
+  if (!key) return;
+  if (key.action === ACTION_NEWCHAT) {
+    const surface = (key.settings && key.settings.surface) || "chat";
+    let url = `claude://claude.ai/new?surface=${surface}`;
+    const prompt = key.settings && key.settings.prompt && key.settings.prompt.trim();
+    if (prompt) url += `&q=${encodeURIComponent(prompt)}`;
+    openURL(url);
+    send({ event: "showOk", context });
+    return;
+  }
+  const session = resolve(key.settings);
   if (!session) return;
   if (session.desktopId) {
     const route = session.kind === "cowork" ? "local_sessions" : "claude-code-desktop";

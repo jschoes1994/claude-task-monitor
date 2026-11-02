@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body {
+    margin: 0;
+    padding: 10px;
+    background: #2D2D2D;
+    color: #D8D8D8;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 13px;
+  }
+  label { display: block; margin: 10px 0 4px; color: #969696; font-size: 11px; text-transform: uppercase; }
+  select, textarea {
+    width: 100%;
+    padding: 6px;
+    background: #3D3D3D;
+    color: #FFFFFF;
+    border: 1px solid #1A1A1A;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  textarea { height: 56px; resize: vertical; }
+  .hint { margin-top: 10px; color: #808080; font-size: 11px; line-height: 1.4; }
+</style>
+</head>
+<body>
+  <label for="surface">Starts a new</label>
+  <select id="surface">
+    <option value="chat">Chat (conversation)</option>
+    <option value="cowork">Cowork session</option>
+    <option value="code">Code session</option>
+  </select>
+
+  <label for="prompt">Pre-filled prompt (optional)</label>
+  <textarea id="prompt" placeholder="Leave empty for a blank conversation"></textarea>
+
+  <div class="hint">
+    Pressing the key opens Claude Desktop on a fresh conversation. With a
+    pre-filled prompt, the message is waiting in the composer; you can edit it
+    or just hit return. For voice, tap the mic in the new chat.
+  </div>
+
+<script>
+  let websocket = null;
+  let pluginUUID = null;
+  let settings = {};
+
+  function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, aInfo) {
+    pluginUUID = uuid;
+    const actionInfo = JSON.parse(aInfo);
+    settings = (actionInfo.payload && actionInfo.payload.settings) || {};
+    document.getElementById("surface").value = settings.surface || "chat";
+    document.getElementById("prompt").value = settings.prompt || "";
+    websocket = new WebSocket("ws://127.0.0.1:" + port);
+    websocket.onopen = () => websocket.send(JSON.stringify({ event: registerEvent, uuid }));
+  }
+
+  function save() {
+    settings = {
+      surface: document.getElementById("surface").value,
+      prompt: document.getElementById("prompt").value,
+    };
+    if (websocket)
+      websocket.send(JSON.stringify({ event: "setSettings", context: pluginUUID, payload: settings }));
+  }
+
+  document.getElementById("surface").addEventListener("change", save);
+  document.getElementById("prompt").addEventListener("input", save);
+</script>
+</body>
+</html>

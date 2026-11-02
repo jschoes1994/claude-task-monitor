@@ -23,6 +23,18 @@
   "CategoryIcon": "imgs/icon",
   "Actions": [
     {
+      "UUID": "com.jamesschuler.claude-tasks.newchat",
+      "Name": "New Chat",
+      "Icon": "imgs/action",
+      "Tooltip": "Starts a new Claude conversation. Settings choose Chat, Cowork, or Code, with an optional pre-filled prompt.",
+      "PropertyInspectorPath": "ui/newchat.html",
+      "SupportedInMultiActions": true,
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/key", "TitleAlignment": "middle" }
+      ]
+    },
+    {
       "UUID": "com.jamesschuler.claude-tasks.session",
       "Name": "Session Status",
       "Icon": "imgs/action",
