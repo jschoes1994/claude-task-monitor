@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body {
+    margin: 0;
+    padding: 10px;
+    background: #2D2D2D;
+    color: #D8D8D8;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 13px;
+  }
+  label { display: block; margin: 10px 0 4px; color: #969696; font-size: 11px; text-transform: uppercase; }
+  select, input[type=text] {
+    width: 100%;
+    padding: 6px;
+    background: #3D3D3D;
+    color: #FFFFFF;
+    border: 1px solid #1A1A1A;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  .hint { margin-top: 10px; color: #808080; font-size: 11px; line-height: 1.4; }
+  button {
+    margin-top: 8px;
+    padding: 5px 10px;
+    background: #3D3D3D;
+    color: #D8D8D8;
+    border: 1px solid #1A1A1A;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <label for="target">Pin a Code tab or Cowork session</label>
+  <select id="target">
+    <option value="">(none selected)</option>
+  </select>
+  <button id="refresh">Refresh list</button>
+
+  <label for="url">Or paste a claude.ai chat link</label>
+  <input type="text" id="url" placeholder="https://claude.ai/chat/..." />
+
+  <label for="name">Key label</label>
+  <input type="text" id="name" placeholder="What to show on the key" />
+
+  <div class="hint">
+    Pressing the key opens the pinned conversation in Claude Desktop. Regular
+    claude.ai chats open by link; copy the URL from the browser address bar or
+    the desktop app's share menu. Pasting a link overrides the dropdown.
+  </div>
+
+<script>
+  let websocket = null;
+  let pluginUUID = null;
+  let actionInfo = null;
+  let settings = {};
+  let catalog = { code: [], cowork: [] };
+
+  function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, aInfo) {
+    pluginUUID = uuid;
+    actionInfo = JSON.parse(aInfo);
+    settings = (actionInfo.payload && actionInfo.payload.settings) || {};
+    document.getElementById("url").value = settings.type === "chat" ? settings.url || "" : "";
+    document.getElementById("name").value = settings.name || "";
+    websocket = new WebSocket("ws://127.0.0.1:" + port);
+    websocket.onopen = () => {
+      websocket.send(JSON.stringify({ event: registerEvent, uuid }));
+      requestCatalog();
+    };
+    websocket.onmessage = (ev) => {
+      const m = JSON.parse(ev.data);
+      if (m.event === "sendToPropertyInspector" && m.payload && m.payload.event === "catalog") {
+        catalog = m.payload.catalog || { code: [], cowork: [] };
+        populate();
+      }
+    };
+    populate();
+  }
+
+  function requestCatalog() {
+    websocket.send(JSON.stringify({
+      event: "sendToPlugin",
+      action: actionInfo.action,
+      context: pluginUUID,
+      payload: { event: "getCatalog" },
+    }));
+  }
+
+  function populate() {
+    const sel = document.getElementById("target");
+    sel.innerHTML = '<option value="">(none selected)</option>';
+    const groups = [
+      ["Claude Code tabs", catalog.code, "code"],
+      ["Cowork sessions", catalog.cowork, "cowork"],
+    ];
+    for (const [label, items, type] of groups) {
+      if (!items.length) continue;
+      const g = document.createElement("optgroup");
+      g.label = label;
+      for (const item of items) {
+        const o = document.createElement("option");
+        o.value = type + ":" + item.id;
+        o.textContent = item.name;
+        g.appendChild(o);
+      }
+      sel.appendChild(g);
+    }
+    if ((settings.type === "code" || settings.type === "cowork") && settings.id) {
+      const v = settings.type + ":" + settings.id;
+      if (![...sel.options].some((o) => o.value === v)) {
+        const o = document.createElement("option");
+        o.value = v;
+        o.textContent = settings.name || settings.id.slice(0, 12);
+        sel.appendChild(o);
+      }
+      sel.value = v;
+    }
+  }
+
+  function save() {
+    websocket.send(JSON.stringify({ event: "setSettings", context: pluginUUID, payload: settings }));
+  }
+
+  document.getElementById("target").addEventListener("change", (e) => {
+    if (!e.target.value) return;
+    const [type, id] = e.target.value.split(/:(.*)/s);
+    const items = type === "code" ? catalog.code : catalog.cowork;
+    const item = items.find((x) => x.id === id);
+    const name = (item && item.name) || document.getElementById("name").value || "";
+    settings = { type, id, name };
+    document.getElementById("url").value = "";
+    document.getElementById("name").value = name;
+    save();
+  });
+
+  document.getElementById("url").addEventListener("input", (e) => {
+    const url = e.target.value.trim();
+    if (!url) return;
+    settings = { type: "chat", url, name: document.getElementById("name").value || "claude.ai chat" };
+    document.getElementById("target").value = "";
+    save();
+  });
+
+  document.getElementById("name").addEventListener("input", (e) => {
+    settings.name = e.target.value;
+    save();
+  });
+
+  document.getElementById("refresh").addEventListener("click", requestCatalog);
+</script>
+</body>
+</html>

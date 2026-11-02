@@ -37,10 +37,16 @@
   <label for="prompt">Pre-filled prompt (optional)</label>
   <textarea id="prompt" placeholder="Leave empty for a blank conversation"></textarea>
 
+  <label style="text-transform:none; display:flex; align-items:center; gap:6px; color:#D8D8D8; font-size:13px;">
+    <input type="checkbox" id="voice" style="width:auto" />
+    Press Caps Lock after opening (triggers voice)
+  </label>
+
   <div class="hint">
     Pressing the key opens Claude Desktop on a fresh conversation. With a
-    pre-filled prompt, the message is waiting in the composer; you can edit it
-    or just hit return. For voice, tap the mic in the new chat.
+    pre-filled prompt, the message is waiting in the composer. The Caps Lock
+    option taps your voice/dictation shortcut 1.5s after the chat opens; it
+    needs macOS Accessibility permission for Stream Deck (prompted once).
   </div>
 
 <script>
@@ -54,6 +60,7 @@
     settings = (actionInfo.payload && actionInfo.payload.settings) || {};
     document.getElementById("surface").value = settings.surface || "chat";
     document.getElementById("prompt").value = settings.prompt || "";
+    document.getElementById("voice").checked = !!settings.voice;
     websocket = new WebSocket("ws://127.0.0.1:" + port);
     websocket.onopen = () => websocket.send(JSON.stringify({ event: registerEvent, uuid }));
   }
@@ -62,6 +69,7 @@
     settings = {
       surface: document.getElementById("surface").value,
       prompt: document.getElementById("prompt").value,
+      voice: document.getElementById("voice").checked,
     };
     if (websocket)
       websocket.send(JSON.stringify({ event: "setSettings", context: pluginUUID, payload: settings }));
@@ -69,6 +77,7 @@
 
   document.getElementById("surface").addEventListener("change", save);
   document.getElementById("prompt").addEventListener("input", save);
+  document.getElementById("voice").addEventListener("change", save);
 </script>
 </body>
 </html>

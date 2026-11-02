@@ -410,6 +410,14 @@ function keyImage(session) {
   return "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64");
 }
 
+if (process.argv.includes("--catalog-test")) {
+  const c = loadCatalog();
+  console.log(`code tabs: ${c.code.length} | cowork: ${c.cowork.length}`);
+  for (const x of c.code.slice(0, 5)) console.log("  code  :", x.name);
+  for (const x of c.cowork.slice(0, 5)) console.log("  cowork:", x.name);
+  process.exit(0);
+}
+
 // ---------------------------------------------------------------------------
 // Key preview mode: render current sessions as an HTML page of key images.
 // Usage: node bin/plugin.js --key-preview <out.html>
@@ -454,6 +462,71 @@ let latest = [];
 
 const ACTION_SESSION = "com.jamesschuler.claude-tasks.session";
 const ACTION_NEWCHAT = "com.jamesschuler.claude-tasks.newchat";
+const ACTION_OPEN = "com.jamesschuler.claude-tasks.open";
+
+// Every pinnable target, regardless of age: Claude Code desktop tabs and Cowork
+// sessions from their metadata stores. Regular claude.ai chats are added by the
+// user as pasted links (no local metadata exists for them).
+function loadCatalog() {
+  const code = [];
+  for (const entry of loadDesktopSessions().values())
+    if (entry.title)
+      code.push({ type: "code", id: entry.desktopId, name: entry.title, activity: entry.activity });
+
+  const cowork = [];
+  for (const org of safeDirs(COWORK_SESSIONS))
+    for (const ws of safeDirs(org))
+      for (const meta of safeFiles(ws, ".json")) {
+        if (!path.basename(meta).startsWith("local_")) continue;
+        const obj = readJSON(meta);
+        if (!obj || obj.isArchived === true || !obj.sessionId || !obj.title) continue;
+        cowork.push({
+          type: "cowork",
+          id: obj.sessionId,
+          name: obj.title,
+          activity: obj.lastActivityAt || 0,
+        });
+      }
+  // Repeated runs (e.g. scheduled Cowork tasks) share a title; keep the newest of each.
+  const dedupe = (items) => {
+    items.sort((a, b) => b.activity - a.activity);
+    const seen = new Set();
+    return items.filter((x) => (seen.has(x.name) ? false : seen.add(x.name)));
+  };
+  return { code: dedupe(code).slice(0, 50), cowork: dedupe(cowork).slice(0, 50) };
+}
+
+const OPEN_COLORS = { chat: "#D97757", cowork: "#9B59D0", code: "#1E66D0" };
+const OPEN_LABELS = { chat: "Chat", cowork: "Cowork", code: "Code" };
+
+function openChatImage(settings) {
+  const type = (settings && settings.type) || "chat";
+  const color = OPEN_COLORS[type] || OPEN_COLORS.chat;
+  const name = (settings && settings.name && settings.name.trim()) || "Pick a chat";
+  const lines = wrap(name, 13, 3);
+  const text = lines
+    .map(
+      (l, i) =>
+        `<text x="72" y="${52 + i * 22}" font-size="18" font-weight="600" fill="#FFFFFF" text-anchor="middle" font-family="-apple-system, Segoe UI, sans-serif">${esc(l)}</text>`
+    )
+    .join("");
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">` +
+    `<rect width="144" height="144" rx="16" fill="#1C1C1E"/>` +
+    // speech-bubble glyph top left
+    `<path d="M14 14h28a6 6 0 0 1 6 6v12a6 6 0 0 1-6 6H28l-9 8v-8h-5a6 6 0 0 1-6-6V20a6 6 0 0 1 6-6z" fill="${color}" opacity="0.9"/>` +
+    text +
+    `<text x="72" y="131" font-size="13" fill="${color}" text-anchor="middle" font-family="-apple-system, Segoe UI, sans-serif">${esc(OPEN_LABELS[type] || "Chat")}</text>` +
+    `</svg>`;
+  return "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64");
+}
+
+// Accepts a full claude.ai chat URL or a bare conversation uuid.
+function chatUuidFrom(text) {
+  if (!text) return null;
+  const m = text.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
+  return m ? m[0] : null;
+}
 
 const SURFACE_LABELS = { chat: "New chat", cowork: "New Cowork", code: "New Code" };
 const SURFACE_COLORS = { chat: "#D97757", cowork: "#9B59D0", code: "#1E66D0" };
@@ -510,10 +583,12 @@ ws.on("message", (data) => {
       press(e.context);
       break;
     case "propertyInspectorDidAppear":
-      sendSessionList(e.context);
+      if (e.action === ACTION_OPEN) sendCatalog(e.context);
+      else if (e.action === ACTION_SESSION) sendSessionList(e.context);
       break;
     case "sendToPlugin":
       if (e.payload && e.payload.event === "getSessions") sendSessionList(e.context);
+      if (e.payload && e.payload.event === "getCatalog") sendCatalog(e.context);
       break;
   }
 });
@@ -528,8 +603,10 @@ function resolve(settings) {
 function renderKey(context) {
   const key = keys.get(context);
   if (!key) return;
-  const image =
-    key.action === ACTION_NEWCHAT ? newChatImage(key.settings) : keyImage(resolve(key.settings));
+  let image;
+  if (key.action === ACTION_NEWCHAT) image = newChatImage(key.settings);
+  else if (key.action === ACTION_OPEN) image = openChatImage(key.settings);
+  else image = keyImage(resolve(key.settings));
   send({ event: "setImage", context, payload: { image, target: 0 } });
   send({ event: "setTitle", context, payload: { title: "", target: 0 } });
 }
@@ -552,6 +629,28 @@ function press(context) {
     const prompt = key.settings && key.settings.prompt && key.settings.prompt.trim();
     if (prompt) url += `&q=${encodeURIComponent(prompt)}`;
     openURL(url);
+    // Optional: tap Caps Lock after the chat opens to trigger the user's
+    // voice/dictation shortcut (macOS only; needs Accessibility permission).
+    if (key.settings && key.settings.voice && process.platform === "darwin") {
+      setTimeout(() => {
+        execFile("osascript", ["-e", 'tell application "System Events" to key code 57'], () => {});
+      }, 1500);
+    }
+    send({ event: "showOk", context });
+    return;
+  }
+  if (key.action === ACTION_OPEN) {
+    const s = key.settings || {};
+    if (s.type === "code" && s.id) openURL(`claude://claude.ai/claude-code-desktop/${s.id}`);
+    else if (s.type === "cowork" && s.id) openURL(`claude://claude.ai/local_sessions/${s.id}`);
+    else {
+      const uuid = chatUuidFrom(s.url);
+      if (uuid) openURL(`claude://claude.ai/chat/${uuid}`);
+      else {
+        send({ event: "showAlert", context });
+        return;
+      }
+    }
     send({ event: "showOk", context });
     return;
   }
@@ -585,6 +684,21 @@ function sendSessionList(context) {
         kind: s.kind,
       })),
     },
+  });
+}
+
+function sendCatalog(context) {
+  let catalog;
+  try {
+    catalog = loadCatalog();
+  } catch {
+    catalog = { code: [], cowork: [] };
+  }
+  send({
+    event: "sendToPropertyInspector",
+    action: ACTION_OPEN,
+    context,
+    payload: { event: "catalog", catalog },
   });
 }
 

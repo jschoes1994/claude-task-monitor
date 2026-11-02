@@ -35,6 +35,18 @@
       ]
     },
     {
+      "UUID": "com.jamesschuler.claude-tasks.open",
+      "Name": "Chat Shortcut",
+      "Icon": "imgs/action",
+      "Tooltip": "Opens a pinned Claude chat, Code tab, or Cowork session. Works for regular claude.ai chats too (paste the chat link).",
+      "PropertyInspectorPath": "ui/openchat.html",
+      "SupportedInMultiActions": true,
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "imgs/key", "TitleAlignment": "middle" }
+      ]
+    },
+    {
       "UUID": "com.jamesschuler.claude-tasks.session",
       "Name": "Session Status",
       "Icon": "imgs/action",
